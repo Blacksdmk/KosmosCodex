@@ -1,1 +1,22 @@
-const topbar=document.querySelector('.topbar'),menu=document.querySelector('.menu'),search=document.querySelector('#search'),records=[...document.querySelectorAll('.record')];menu?.addEventListener('click',()=>{topbar.classList.toggle('open');menu.setAttribute('aria-expanded',topbar.classList.contains('open'))});search?.addEventListener('input',e=>{const q=e.target.value.trim().toLowerCase();records.forEach(card=>{card.hidden=!!q&&!card.textContent.toLowerCase().includes(q)&&!card.dataset.tags.includes(q)})});
+const topbar = document.querySelector('.topbar');
+const menu = document.querySelector('.menu');
+const raceList = document.querySelector('#race-list');
+
+menu?.addEventListener('click', () => {
+  topbar.classList.toggle('open');
+  menu.setAttribute('aria-expanded', String(topbar.classList.contains('open')));
+});
+
+if (raceList) {
+  fetch('data/races.json')
+    .then((response) => response.json())
+    .then((races) => {
+      raceList.replaceChildren(...races.map((race) => {
+        const card = document.createElement('article');
+        card.className = 'record';
+        card.innerHTML = `<p>${race.classification}</p><h3>${race.name}</h3><span>${race.summary}</span><a href="#${race.id}">Consultar registro</a>`;
+        return card;
+      }));
+    })
+    .catch(() => { raceList.innerHTML = '<p class="notice">No fue posible cargar el registro de razas.</p>'; });
+}

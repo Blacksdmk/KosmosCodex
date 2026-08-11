@@ -1,15 +1,15 @@
 # Archivo del Nucleo - KOSMOS
 
-Web estatica preparada para GitHub Pages. No requiere Node ni instalacion.
+Sitio estatico del Codex oficial de KOSMOS, listo para GitHub Pages.
 
 ## Publicar
 
 En GitHub: `Settings` -> `Pages` -> `Deploy from a branch` -> selecciona `main` y `/ (root)`.
 
-## Agregar contenido
+## Agregar una raza
 
-La portada se edita en `index.html`. Cada bloque `.record` representa una entrada publica o restringida. La proxima fase puede separar el contenido en archivos Markdown sin cambiar el diseno.
+Edita [`data/races.json`](data/races.json) desde GitHub. Copia una entrada existente y cambia `id`, `name`, `classification` y `summary`. Al publicar el cambio, aparecera automaticamente dentro de la pagina **Razas**.
 
-## Recursos
+## Secciones
 
-`assets/archive-hero.png` es una ilustracion original creada para el Archivo de KOSMOS.
+Cada apartado del Archivo tiene su propia pagina: Razas, Lugares, Facciones, Magia, Bestiario y Biblioteca. El repositorio no se enlaza desde la experiencia publica del mundo.
