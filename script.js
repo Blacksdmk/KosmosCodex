@@ -10,8 +10,7 @@ const firebaseConfig = {
 
 const topbar = document.querySelector('.topbar');
 const menu = document.querySelector('.menu');
-const raceList = document.querySelector('#race-list');
-const reportList = document.querySelector('#report-list');
+const collectionList = document.querySelector('[data-codex-collection]');
 const reportDetail = document.querySelector('#report-detail');
 const adminForm = document.querySelector('#admin-form');
 
@@ -20,35 +19,27 @@ menu?.addEventListener('click', () => {
   menu.setAttribute('aria-expanded', String(topbar.classList.contains('open')));
 });
 
-const loadJson = (path) => fetch(path).then((response) => {
-  if (!response.ok) throw new Error('No se pudo cargar el Archivo.');
-  return response.json();
-});
-
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
 }[character]));
 
-const renderRaces = (races) => {
-  raceList.replaceChildren(...races.map((race) => {
+const asArray = (value) => value && typeof value === 'object' ? Object.values(value) : [];
+const emptyMessage = (list, message) => { list.innerHTML = `<p class="notice">${escapeHtml(message)}</p>`; };
+
+const renderCollection = (list, entries, collection) => {
+  if (!entries.length) {
+    emptyMessage(list, 'Aun no hay registros publicados en este apartado.');
+    return;
+  }
+  list.replaceChildren(...entries.map((entry) => {
     const card = document.createElement('article');
-    card.className = 'record';
-    card.innerHTML = `<p>${escapeHtml(race.classification)}</p><h3>${escapeHtml(race.name)}</h3><span>${escapeHtml(race.summary)}</span>`;
+    card.className = `record ${entry.status === 'locked' ? 'locked' : ''}`;
+    const category = entry.category || entry.classification || 'REGISTRO';
+    const title = entry.title || entry.name || 'Sin titulo';
+    const detail = `<a href="registro.html?section=${encodeURIComponent(collection)}&id=${encodeURIComponent(entry.id)}">Abrir registro</a>`;
+    card.innerHTML = `<p>${escapeHtml(category)}</p><h3>${escapeHtml(title)}</h3><span>${escapeHtml(entry.summary)}</span>${detail}`;
     return card;
   }));
-};
-
-const renderReports = (reports) => {
-  reportList.replaceChildren(...reports.map((report) => {
-    const card = document.createElement('article');
-    card.className = `record ${report.status === 'locked' ? 'locked' : ''}`;
-    card.innerHTML = `<p>${escapeHtml(report.category)}</p><h3>${escapeHtml(report.title)}</h3><span>${escapeHtml(report.summary)}</span><a href="registro.html?id=${encodeURIComponent(report.id)}">Abrir informe</a>`;
-    return card;
-  }));
-};
-
-const fallback = async (path) => {
-  try { return await loadJson(path); } catch { return []; }
 };
 
 (async () => {
@@ -60,46 +51,38 @@ const fallback = async (path) => {
   const app = initializeApp(firebaseConfig);
   const auth = authSdk.getAuth(app);
   const database = dbSdk.getDatabase(app);
-  const asArray = (value) => value && typeof value === 'object' ? Object.values(value) : [];
 
-  if (raceList) {
-    const local = await fallback('data/races.json');
-    renderRaces(local);
-    dbSdk.onValue(dbSdk.ref(database, 'codex/races'), (snapshot) => {
-      const remote = asArray(snapshot.val());
-      if (remote.length) renderRaces(remote);
-    });
-  }
-
-  if (reportList) {
-    const local = await fallback('data/reports.json');
-    renderReports(local);
-    dbSdk.onValue(dbSdk.ref(database, 'codex/reports'), (snapshot) => {
-      const remote = asArray(snapshot.val());
-      if (remote.length) renderReports(remote);
-    });
+  if (collectionList) {
+    const collection = collectionList.dataset.codexCollection;
+    emptyMessage(collectionList, 'Consultando registros...');
+    dbSdk.onValue(dbSdk.ref(database, `codex/${collection}`), (snapshot) => {
+      renderCollection(collectionList, asArray(snapshot.val()), collection);
+    }, () => emptyMessage(collectionList, 'No fue posible consultar este apartado.'));
   }
 
   if (reportDetail) {
-    const reportId = new URLSearchParams(location.search).get('id');
-    const showReport = (reports) => {
-      const report = reports.find((entry) => entry.id === reportId);
-      if (!report) return false;
+    const params = new URLSearchParams(location.search);
+    const collection = params.get('section') || 'reports';
+    const entryId = params.get('id');
+    const sectionNames = { reports: 'Biblioteca', races: 'Razas', places: 'Lugares', factions: 'Facciones', magic: 'Magia', bestiary: 'Bestiario' };
+    if (!sectionNames[collection]) {
+      reportDetail.innerHTML = '<p class="notice">El apartado solicitado no existe.</p>';
+      return;
+    }
+    dbSdk.onValue(dbSdk.ref(database, `codex/${collection}`), (snapshot) => {
+      const report = asArray(snapshot.val()).find((entry) => entry.id === entryId);
+      if (!report) {
+        reportDetail.innerHTML = '<p class="notice">El expediente solicitado no existe o aun no esta publicado.</p>';
+        return;
+      }
       const paragraphs = String(report.content || '').split('\n\n').filter(Boolean)
         .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('');
-      reportDetail.innerHTML = `<a class="back-link" href="biblioteca.html">Volver a Biblioteca</a><p class="eyebrow">${escapeHtml(report.category)}</p><h1>${escapeHtml(report.title)}</h1><p class="page-lead">${escapeHtml(report.summary)}</p><article class="report-body">${paragraphs}</article>`;
-      return true;
-    };
-    const local = await fallback('data/reports.json');
-    showReport(local);
-    dbSdk.onValue(dbSdk.ref(database, 'codex/reports'), (snapshot) => {
-      const remote = asArray(snapshot.val());
-      if (!showReport(remote) && !showReport(local)) reportDetail.innerHTML = '<p class="notice">El expediente solicitado no existe o no esta disponible.</p>';
+      const returnPages = { reports: 'biblioteca.html', races: 'razas.html', places: 'lugares.html', factions: 'facciones.html', magic: 'magia.html', bestiary: 'bestiario.html' };
+      reportDetail.innerHTML = `<a class="back-link" href="${returnPages[collection]}">Volver a ${sectionNames[collection]}</a><p class="eyebrow">${escapeHtml(report.category)}</p><h1>${escapeHtml(report.title)}</h1><p class="page-lead">${escapeHtml(report.summary)}</p><article class="report-body">${paragraphs || '<p>Este registro aun no contiene una descripcion extensa.</p>'}</article>`;
     });
   }
 
   if (!adminForm) return;
-
   const gate = document.querySelector('#auth-gate');
   const editor = document.querySelector('#editor');
   const loginForm = document.querySelector('#login-form');
@@ -110,10 +93,9 @@ const fallback = async (path) => {
   const statusField = document.querySelector('#status-field');
   const content = document.querySelector('#content');
   const updateFormMode = () => {
-    const isRace = entryType.value === 'race';
-    contentField.hidden = isRace;
-    statusField.hidden = isRace;
-    content.required = !isRace;
+    contentField.hidden = false;
+    statusField.hidden = entryType.value !== 'reports';
+    content.required = true;
   };
   entryType.addEventListener('change', updateFormMode);
   updateFormMode();
@@ -127,7 +109,6 @@ const fallback = async (path) => {
       authMessage.textContent = 'No se pudo iniciar sesion. Revisa el correo y la contrasena.';
     }
   });
-
   document.querySelector('#logout').addEventListener('click', () => authSdk.signOut(auth));
 
   authSdk.onAuthStateChanged(auth, async (user) => {
@@ -149,17 +130,23 @@ const fallback = async (path) => {
 
   adminForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const user = auth.currentUser;
-    if (!user) return;
-    const isRace = entryType.value === 'race';
+    if (!auth.currentUser) return;
+    const collection = entryType.value;
     const title = document.querySelector('#title').value.trim();
     const id = `${title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${Date.now().toString(36)}`;
-    const entry = isRace
-      ? { id, name: title, classification: document.querySelector('#category').value.trim(), summary: document.querySelector('#summary').value.trim() }
-      : { id, category: document.querySelector('#category').value.trim(), title, summary: document.querySelector('#summary').value.trim(), content: content.value.trim(), status: document.querySelector('#status').value };
+    const entry = {
+      id,
+      title,
+      name: title,
+      category: document.querySelector('#category').value.trim(),
+      classification: document.querySelector('#category').value.trim(),
+      summary: document.querySelector('#summary').value.trim(),
+      status: document.querySelector('#status').value
+    };
+    entry.content = content.value.trim();
     try {
       adminMessage.textContent = 'Publicando entrada...';
-      await dbSdk.set(dbSdk.ref(database, `codex/${isRace ? 'races' : 'reports'}/${id}`), entry);
+      await dbSdk.set(dbSdk.ref(database, `codex/${collection}/${id}`), entry);
       adminForm.reset();
       updateFormMode();
       adminMessage.textContent = 'Entrada publicada en el Archivo.';

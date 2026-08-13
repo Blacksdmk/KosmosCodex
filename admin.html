@@ -28,11 +28,11 @@
       <h1>Editor del Archivo</h1>
       <p class="page-lead">Crea entradas para el Codex. Los cambios se publican en Firebase de inmediato.</p>
       <form id="admin-form" class="admin-form">
-        <label>Tipo de entrada<select id="entry-type"><option value="report">Informe o documento</option><option value="race">Raza</option></select></label>
-        <label>Categoria o clasificacion<input id="category" required placeholder="INFORME / CRONOLOGIA / LINAJE"></label>
+        <label>Apartado del Archivo<select id="entry-type"><option value="reports">Biblioteca / Informe</option><option value="races">Razas</option><option value="places">Lugares</option><option value="factions">Facciones</option><option value="magic">Magia</option><option value="bestiary">Bestiario</option></select></label>
+        <label>Categoria o clasificacion<input id="category" required placeholder="Ej. cronologia, linaje, criatura o escuela"></label>
         <label>Titulo o nombre<input id="title" required maxlength="90"></label>
         <label>Resumen<textarea id="summary" required maxlength="180"></textarea></label>
-        <label id="content-field">Contenido completo<textarea id="content" required rows="10"></textarea></label>
+        <label id="content-field">Contenido completo<textarea id="content" required rows="10" placeholder="Escribe aqui la informacion completa que aparecera al abrir este registro."></textarea></label>
         <label id="status-field">Estado<select id="status"><option value="public">Publico</option><option value="locked">Restringido</option></select></label>
         <button class="button primary" type="submit">Publicar entrada</button>
         <button class="button" id="logout" type="button">Cerrar sesion</button>

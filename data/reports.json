@@ -1,18 +1,1 @@
-[
-  {
-    "id": "anomalias-norte-nerthaal",
-    "category": "INFORME 017",
-    "title": "Anomalias luminicas al norte de Nerthaal",
-    "summary": "El fenomeno reaparece durante las horas sin luna.",
-    "content": "Durante tres noches consecutivas se observaron luces violetas entre la niebla del norte. Los testigos no coinciden en su forma ni en la distancia a la que aparecieron, pero todos describen un silencio anormal antes del resplandor.\n\nLas fuentes oficiales niegan actividad arcana en la region. El Archivo conserva este informe hasta que una expedicion pueda confirmar el origen de la anomalia.",
-    "status": "public"
-  },
-  {
-    "id": "caida-y-silencio",
-    "category": "CRONOLOGIA",
-    "title": "La caida y el silencio",
-    "summary": "Los registros sobrevivientes difieren en cada detalle esencial.",
-    "content": "El periodo posterior a la caida de la antigua Nerthaal es uno de los vacios mas inquietantes del Archivo. Cartas, diarios y placas de piedra hablan de un unico evento, aunque ninguno logra describirlo del mismo modo.\n\nLas fechas se contradicen. Los nombres han sido borrados. Lo unico constante es el silencio que siguio.",
-    "status": "public"
-  }
-]
+[]
