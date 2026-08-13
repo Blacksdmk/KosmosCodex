@@ -1,1 +1,46 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>KOSMOS | Administracion</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="admin-styles.css"></head><body><header class="topbar"><a class="brand" href="index.html">KOSMOS <span>ADMINISTRACION</span></a></header><main class="admin-shell"><p class="eyebrow">USO PRIVADO</p><h1>Editor del Archivo</h1><p class="page-lead">Publica contenido directamente en GitHub. El token se usa solo en este navegador durante esta sesion y nunca queda dentro del sitio.</p><form id="admin-form" class="admin-form"><label>Token fino de GitHub<input id="token" type="password" autocomplete="off" required placeholder="github_pat_..."></label><label>Tipo de entrada<select id="entry-type"><option value="report">Informe o documento</option><option value="race">Raza</option></select></label><label>Categoria o clasificacion<input id="category" required placeholder="INFORME / CRONOLOGIA / LINAJE"></label><label>Titulo o nombre<input id="title" required maxlength="90"></label><label>Resumen<textarea id="summary" required maxlength="180"></textarea></label><label id="content-field">Contenido completo<textarea id="content" required rows="10"></textarea></label><label id="status-field">Estado<select id="status"><option value="public">Publico</option><option value="locked">Restringido</option></select></label><button class="button primary" type="submit">Publicar entrada</button><p class="notice" id="admin-message">Crea un token fino con permiso Contents: Read and write solo para KosmosCodex.</p></form></main><footer>ARCHIVO DEL NUCLEO · KOSMOS</footer><script src="script.js"></script></body></html>
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>KOSMOS | Administracion</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="admin-styles.css">
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="index.html">KOSMOS <span>ADMINISTRACION</span></a></header>
+  <main class="admin-shell">
+    <section id="auth-gate">
+      <p class="eyebrow">USO PRIVADO</p>
+      <h1>Acceso al Archivo</h1>
+      <p class="page-lead">Inicia sesion con una cuenta autorizada de KOSMOS.</p>
+      <form id="login-form" class="admin-form">
+        <label>Correo<input id="login-email" type="email" autocomplete="email" required placeholder="correo@ejemplo.com"></label>
+        <label>Contrasena<input id="login-password" type="password" autocomplete="current-password" required placeholder="Contrasena"></label>
+        <button class="button primary" type="submit">Iniciar sesion</button>
+        <p class="notice" id="auth-message"></p>
+      </form>
+    </section>
+
+    <section id="editor" hidden>
+      <p class="eyebrow">USO PRIVADO</p>
+      <h1>Editor del Archivo</h1>
+      <p class="page-lead">Crea entradas para el Codex. Los cambios se publican en Firebase de inmediato.</p>
+      <form id="admin-form" class="admin-form">
+        <label>Tipo de entrada<select id="entry-type"><option value="report">Informe o documento</option><option value="race">Raza</option></select></label>
+        <label>Categoria o clasificacion<input id="category" required placeholder="INFORME / CRONOLOGIA / LINAJE"></label>
+        <label>Titulo o nombre<input id="title" required maxlength="90"></label>
+        <label>Resumen<textarea id="summary" required maxlength="180"></textarea></label>
+        <label id="content-field">Contenido completo<textarea id="content" required rows="10"></textarea></label>
+        <label id="status-field">Estado<select id="status"><option value="public">Publico</option><option value="locked">Restringido</option></select></label>
+        <button class="button primary" type="submit">Publicar entrada</button>
+        <button class="button" id="logout" type="button">Cerrar sesion</button>
+        <p class="notice" id="admin-message">Tu cuenta tiene permisos de administracion.</p>
+      </form>
+    </section>
+  </main>
+  <footer>ARCHIVO DEL NUCLEO · KOSMOS</footer>
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,3 +1,13 @@
+const firebaseConfig = {
+  apiKey: "AIzaSyCiRHmRoJUujwfCQ_v5NwuwQ2lBQ0yrpUQ",
+  authDomain: "kosmos-4a934.firebaseapp.com",
+  databaseURL: "https://kosmos-4a934-default-rtdb.firebaseio.com",
+  projectId: "kosmos-4a934",
+  storageBucket: "kosmos-4a934.firebasestorage.app",
+  messagingSenderId: "37621654617",
+  appId: "1:37621654617:web:6a012273a9ffef47117d48"
+};
+
 const topbar = document.querySelector('.topbar');
 const menu = document.querySelector('.menu');
 const raceList = document.querySelector('#race-list');
@@ -15,76 +25,146 @@ const loadJson = (path) => fetch(path).then((response) => {
   return response.json();
 });
 
-if (raceList) {
-  loadJson('data/races.json').then((races) => {
-    raceList.replaceChildren(...races.map((race) => {
-      const card = document.createElement('article');
-      card.className = 'record';
-      card.innerHTML = `<p>${race.classification}</p><h3>${race.name}</h3><span>${race.summary}</span>`;
-      return card;
-    }));
-  }).catch(() => { raceList.innerHTML = '<p class="notice">No fue posible cargar el registro de razas.</p>'; });
-}
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+}[character]));
 
-if (reportList) {
-  loadJson('data/reports.json').then((reports) => {
-    reportList.replaceChildren(...reports.map((report) => {
-      const card = document.createElement('article');
-      card.className = `record ${report.status === 'locked' ? 'locked' : ''}`;
-      card.innerHTML = `<p>${report.category}</p><h3>${report.title}</h3><span>${report.summary}</span><a href="registro.html?id=${encodeURIComponent(report.id)}">Abrir informe</a>`;
-      return card;
-    }));
-  }).catch(() => { reportList.innerHTML = '<p class="notice">No fue posible cargar los documentos.</p>'; });
-}
+const renderRaces = (races) => {
+  raceList.replaceChildren(...races.map((race) => {
+    const card = document.createElement('article');
+    card.className = 'record';
+    card.innerHTML = `<p>${escapeHtml(race.classification)}</p><h3>${escapeHtml(race.name)}</h3><span>${escapeHtml(race.summary)}</span>`;
+    return card;
+  }));
+};
 
-if (reportDetail) {
-  const reportId = new URLSearchParams(location.search).get('id');
-  loadJson('data/reports.json').then((reports) => {
-    const report = reports.find((entry) => entry.id === reportId);
-    if (!report) throw new Error('Registro no encontrado.');
-    reportDetail.innerHTML = `<a class="back-link" href="biblioteca.html">Volver a Biblioteca</a><p class="eyebrow">${report.category}</p><h1>${report.title}</h1><p class="page-lead">${report.summary}</p><article class="report-body">${report.content.split('\n\n').map((paragraph) => `<p>${paragraph}</p>`).join('')}</article>`;
-  }).catch(() => { reportDetail.innerHTML = '<p class="notice">El expediente solicitado no existe o no esta disponible.</p>'; });
-}
+const renderReports = (reports) => {
+  reportList.replaceChildren(...reports.map((report) => {
+    const card = document.createElement('article');
+    card.className = `record ${report.status === 'locked' ? 'locked' : ''}`;
+    card.innerHTML = `<p>${escapeHtml(report.category)}</p><h3>${escapeHtml(report.title)}</h3><span>${escapeHtml(report.summary)}</span><a href="registro.html?id=${encodeURIComponent(report.id)}">Abrir informe</a>`;
+    return card;
+  }));
+};
 
-const base64Encode = (value) => btoa(unescape(encodeURIComponent(value)));
+const fallback = async (path) => {
+  try { return await loadJson(path); } catch { return []; }
+};
 
-if (adminForm) {
-  const message = document.querySelector('#admin-message');
+(async () => {
+  const [{ initializeApp }, authSdk, dbSdk] = await Promise.all([
+    import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js'),
+    import('https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js'),
+    import('https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js')
+  ]);
+  const app = initializeApp(firebaseConfig);
+  const auth = authSdk.getAuth(app);
+  const database = dbSdk.getDatabase(app);
+  const asArray = (value) => value && typeof value === 'object' ? Object.values(value) : [];
+
+  if (raceList) {
+    const local = await fallback('data/races.json');
+    renderRaces(local);
+    dbSdk.onValue(dbSdk.ref(database, 'codex/races'), (snapshot) => {
+      const remote = asArray(snapshot.val());
+      if (remote.length) renderRaces(remote);
+    });
+  }
+
+  if (reportList) {
+    const local = await fallback('data/reports.json');
+    renderReports(local);
+    dbSdk.onValue(dbSdk.ref(database, 'codex/reports'), (snapshot) => {
+      const remote = asArray(snapshot.val());
+      if (remote.length) renderReports(remote);
+    });
+  }
+
+  if (reportDetail) {
+    const reportId = new URLSearchParams(location.search).get('id');
+    const showReport = (reports) => {
+      const report = reports.find((entry) => entry.id === reportId);
+      if (!report) return false;
+      const paragraphs = String(report.content || '').split('\n\n').filter(Boolean)
+        .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('');
+      reportDetail.innerHTML = `<a class="back-link" href="biblioteca.html">Volver a Biblioteca</a><p class="eyebrow">${escapeHtml(report.category)}</p><h1>${escapeHtml(report.title)}</h1><p class="page-lead">${escapeHtml(report.summary)}</p><article class="report-body">${paragraphs}</article>`;
+      return true;
+    };
+    const local = await fallback('data/reports.json');
+    showReport(local);
+    dbSdk.onValue(dbSdk.ref(database, 'codex/reports'), (snapshot) => {
+      const remote = asArray(snapshot.val());
+      if (!showReport(remote) && !showReport(local)) reportDetail.innerHTML = '<p class="notice">El expediente solicitado no existe o no esta disponible.</p>';
+    });
+  }
+
+  if (!adminForm) return;
+
+  const gate = document.querySelector('#auth-gate');
+  const editor = document.querySelector('#editor');
+  const loginForm = document.querySelector('#login-form');
+  const authMessage = document.querySelector('#auth-message');
+  const adminMessage = document.querySelector('#admin-message');
   const entryType = document.querySelector('#entry-type');
   const contentField = document.querySelector('#content-field');
   const statusField = document.querySelector('#status-field');
+  const content = document.querySelector('#content');
   const updateFormMode = () => {
     const isRace = entryType.value === 'race';
     contentField.hidden = isRace;
     statusField.hidden = isRace;
-    document.querySelector('#content').required = !isRace;
+    content.required = !isRace;
   };
   entryType.addEventListener('change', updateFormMode);
   updateFormMode();
+
+  loginForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    authMessage.textContent = 'Verificando acceso...';
+    try {
+      await authSdk.signInWithEmailAndPassword(auth, document.querySelector('#login-email').value.trim(), document.querySelector('#login-password').value);
+    } catch {
+      authMessage.textContent = 'No se pudo iniciar sesion. Revisa el correo y la contrasena.';
+    }
+  });
+
+  document.querySelector('#logout').addEventListener('click', () => authSdk.signOut(auth));
+
+  authSdk.onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      gate.hidden = false;
+      editor.hidden = true;
+      return;
+    }
+    const permission = await dbSdk.get(dbSdk.ref(database, `admins/${user.uid}`));
+    if (permission.val() !== true) {
+      authMessage.textContent = 'Esta cuenta no tiene permiso de administracion.';
+      await authSdk.signOut(auth);
+      return;
+    }
+    gate.hidden = true;
+    editor.hidden = false;
+    adminMessage.textContent = `Sesion autorizada: ${user.email}`;
+  });
+
   adminForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const token = document.querySelector('#token').value.trim();
-    const category = document.querySelector('#category').value.trim();
-    const title = document.querySelector('#title').value.trim();
-    const summary = document.querySelector('#summary').value.trim();
-    const content = document.querySelector('#content').value.trim();
-    const status = document.querySelector('#status').value;
+    const user = auth.currentUser;
+    if (!user) return;
     const isRace = entryType.value === 'race';
+    const title = document.querySelector('#title').value.trim();
     const id = `${title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${Date.now().toString(36)}`;
-    const endpoint = `https://api.github.com/repos/Blacksdmk/KosmosCodex/contents/${isRace ? 'data/races.json' : 'data/reports.json'}`;
-    message.textContent = 'Leyendo el Archivo actual...';
+    const entry = isRace
+      ? { id, name: title, classification: document.querySelector('#category').value.trim(), summary: document.querySelector('#summary').value.trim() }
+      : { id, category: document.querySelector('#category').value.trim(), title, summary: document.querySelector('#summary').value.trim(), content: content.value.trim(), status: document.querySelector('#status').value };
     try {
-      const headers = { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' };
-      const currentResponse = await fetch(endpoint, { headers });
-      if (!currentResponse.ok) throw new Error('GitHub rechazo el token o el permiso Contents.');
-      const current = await currentResponse.json();
-      const entries = JSON.parse(decodeURIComponent(escape(atob(current.content.replace(/\n/g, '')))));
-      entries.push(isRace ? { id, name: title, classification: category, summary } : { id, category, title, summary, content, status });
-      const updateResponse = await fetch(endpoint, { method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: `Add Archive ${isRace ? 'race' : 'report'}: ${title}`, content: base64Encode(JSON.stringify(entries, null, 2) + '\n'), sha: current.sha, branch: 'main' }) });
-      if (!updateResponse.ok) throw new Error('GitHub no pudo publicar la entrada.');
+      adminMessage.textContent = 'Publicando entrada...';
+      await dbSdk.set(dbSdk.ref(database, `codex/${isRace ? 'races' : 'reports'}/${id}`), entry);
       adminForm.reset();
       updateFormMode();
-      message.textContent = 'Entrada publicada. GitHub Pages la mostrara al terminar el despliegue.';
-    } catch (error) { message.textContent = error.message; }
+      adminMessage.textContent = 'Entrada publicada en el Archivo.';
+    } catch {
+      adminMessage.textContent = 'Firebase rechazo la publicacion. Revisa las reglas.';
+    }
   });
-}
+})();
