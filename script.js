@@ -23,6 +23,8 @@ const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
 }[character]));
 
+const formatText = (value) => escapeHtml(value).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+
 const asArray = (value) => value && typeof value === 'object' ? Object.values(value) : [];
 const emptyMessage = (list, message) => { list.innerHTML = `<p class="notice">${escapeHtml(message)}</p>`; };
 
@@ -76,7 +78,7 @@ const renderCollection = (list, entries, collection) => {
         return;
       }
       const paragraphs = String(report.content || '').split('\n\n').filter(Boolean)
-        .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('');
+        .map((paragraph) => `<p>${formatText(paragraph).replace(/\n/g, '<br>')}</p>`).join('');
       const returnPages = { reports: 'biblioteca.html', races: 'razas.html', places: 'lugares.html', factions: 'facciones.html', magic: 'magia.html', bestiary: 'bestiario.html' };
       reportDetail.innerHTML = `<a class="back-link" href="${returnPages[collection]}">Volver a ${sectionNames[collection]}</a><p class="eyebrow">${escapeHtml(report.category)}</p><h1>${escapeHtml(report.title)}</h1><p class="page-lead">${escapeHtml(report.summary)}</p><article class="report-body">${paragraphs || '<p>Este registro aun no contiene una descripcion extensa.</p>'}</article>`;
     });
@@ -89,9 +91,14 @@ const renderCollection = (list, entries, collection) => {
   const authMessage = document.querySelector('#auth-message');
   const adminMessage = document.querySelector('#admin-message');
   const entryType = document.querySelector('#entry-type');
+  const existingEntry = document.querySelector('#existing-entry');
+  const loadEntry = document.querySelector('#load-entry');
+  const saveEntry = document.querySelector('#save-entry');
   const contentField = document.querySelector('#content-field');
   const statusField = document.querySelector('#status-field');
   const content = document.querySelector('#content');
+  let entriesById = {};
+  let selectedEntryId = '';
   const updateFormMode = () => {
     contentField.hidden = false;
     statusField.hidden = entryType.value !== 'reports';
@@ -99,6 +106,51 @@ const renderCollection = (list, entries, collection) => {
   };
   entryType.addEventListener('change', updateFormMode);
   updateFormMode();
+
+  const resetEditor = () => {
+    selectedEntryId = '';
+    adminForm.reset();
+    existingEntry.replaceChildren(new Option('Nueva entrada', ''));
+    saveEntry.textContent = 'Publicar entrada';
+    updateFormMode();
+  };
+
+  const loadEntriesForEditor = async () => {
+    const collection = entryType.value;
+    const snapshot = await dbSdk.get(dbSdk.ref(database, `codex/${collection}`));
+    entriesById = snapshot.val() || {};
+    existingEntry.replaceChildren(new Option('Nueva entrada', ''));
+    Object.values(entriesById)
+      .sort((a, b) => String(a.title || a.name).localeCompare(String(b.title || b.name), 'es'))
+      .forEach((entry) => existingEntry.add(new Option(entry.title || entry.name || entry.id, entry.id)));
+  };
+
+  entryType.addEventListener('change', async () => {
+    const collection = entryType.value;
+    selectedEntryId = '';
+    adminForm.reset();
+    entryType.value = collection;
+    saveEntry.textContent = 'Publicar entrada';
+    updateFormMode();
+    if (auth.currentUser) await loadEntriesForEditor();
+  });
+
+  loadEntry.addEventListener('click', () => {
+    const entry = entriesById[existingEntry.value];
+    if (!entry) {
+      selectedEntryId = '';
+      saveEntry.textContent = 'Publicar entrada';
+      return;
+    }
+    selectedEntryId = entry.id;
+    document.querySelector('#category').value = entry.category || entry.classification || '';
+    document.querySelector('#title').value = entry.title || entry.name || '';
+    document.querySelector('#summary').value = entry.summary || '';
+    content.value = entry.content || '';
+    document.querySelector('#status').value = entry.status || 'public';
+    saveEntry.textContent = 'Guardar cambios';
+    adminMessage.textContent = `Editando: ${entry.title || entry.name}`;
+  });
 
   loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -126,6 +178,7 @@ const renderCollection = (list, entries, collection) => {
     gate.hidden = true;
     editor.hidden = false;
     adminMessage.textContent = `Sesion autorizada: ${user.email}`;
+    await loadEntriesForEditor();
   });
 
   adminForm.addEventListener('submit', async (event) => {
@@ -133,7 +186,7 @@ const renderCollection = (list, entries, collection) => {
     if (!auth.currentUser) return;
     const collection = entryType.value;
     const title = document.querySelector('#title').value.trim();
-    const id = `${title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${Date.now().toString(36)}`;
+    const id = selectedEntryId || `${title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${Date.now().toString(36)}`;
     const entry = {
       id,
       title,
@@ -145,11 +198,14 @@ const renderCollection = (list, entries, collection) => {
     };
     entry.content = content.value.trim();
     try {
-      adminMessage.textContent = 'Publicando entrada...';
+      const updating = Boolean(selectedEntryId);
+      adminMessage.textContent = updating ? 'Guardando cambios...' : 'Publicando entrada...';
       await dbSdk.set(dbSdk.ref(database, `codex/${collection}/${id}`), entry);
-      adminForm.reset();
-      updateFormMode();
-      adminMessage.textContent = 'Entrada publicada en el Archivo.';
+      await loadEntriesForEditor();
+      existingEntry.value = id;
+      selectedEntryId = id;
+      saveEntry.textContent = 'Guardar cambios';
+      adminMessage.textContent = updating ? 'Cambios guardados en el Archivo.' : 'Entrada publicada en el Archivo.';
     } catch {
       adminMessage.textContent = 'Firebase rechazo la publicacion. Revisa las reglas.';
     }
